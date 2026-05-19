@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEMPORARY MAIL - HACKER EDITION</title>
+    <style>
+        :root {
+            --bg-color: #030303;
+            --neon-green: #00ff41;
+            --dark-green: #003b00;
+            --mid-green: #008f11;
+            --font-stack: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* Custom Scrollbar cho toàn hệ thống */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; border-left: 1px solid var(--dark-green); }
+        ::-webkit-scrollbar-thumb { background: var(--mid-green); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-green); }
+
+        body {
+            background-color: var(--bg-color); color: var(--neon-green);
+            font-family: var(--font-stack); overflow-x: hidden; height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+        /* Scanline Effect */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px; z-index: 999; pointer-events: none;
+        }
+
+        /* Matrix Background */
+        canvas { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.25; }
+
+        /* Boot Screen */
+        #boot-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; padding: 2rem;
+        }
+        .boot-text { font-size: 1.2rem; margin-bottom: 1rem; text-shadow: 0 0 5px var(--neon-green); white-space: pre-wrap; }
+        .loading-bar-container { width: 100%; max-width: 600px; height: 20px; border: 2px solid var(--neon-green); margin-top: 20px; display: none; box-shadow: 0 0 10px var(--neon-green); }
+        .loading-fill { height: 100%; width: 0%; background-color: var(--neon-green); box-shadow: 0 0 15px var(--neon-green); }
+
+        /* Main App */
+        #main-app {
+            display: none; max-width: 1000px; margin: 0 auto; padding: 2rem;
+            width: 100%; height: 100%; flex-direction: column; z-index: 10;
+        }
+        .glitch {
+            font-size: 3rem; font-weight: bold; text-transform: uppercase; position: relative;
+            text-shadow: 0.05em 0 0 rgba(255,0,0,0.75), -0.025em -0.05em 0 rgba(0,255,0,0.75), 0.025em 0.05em 0 rgba(0,0,255,0.75);
+            animation: glitch 500ms infinite; margin-bottom: 0.5rem; text-align: center;
+        }
+        @keyframes glitch {
+            0%, 14%, 15%, 49%, 50%, 99%, 100% {
+                text-shadow: 
+                0.05em 0 0 rgba(255,0,0,0.75), 
+                -0.05em -0.025em 0 rgba(0,255,0,0.75), 
+                -0.025em 0.05em 0 rgba(0,0,255,0.75);
+            }
+        }
+
+        .status-line { text-align: center; margin-bottom: 2rem; font-size: 1.1rem; color: var(--mid-green); }
+        .blink { animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Panel */
+        .panel {
+            border: 1px solid var(--neon-green); background: rgba(0, 59, 0, 0.05);
+            padding: 1.5rem; margin-bottom: 2rem; box-shadow: inset 0 0 15px rgba(0, 255, 65, 0.15), 0 0 10px rgba(0, 255, 65, 0.15);
+            position: relative;
+        }
+        .panel::before { content: ''; position: absolute; top: 0; left: 0; width: 10px; height: 10px; border-top: 2px solid var(--neon-green); border-left: 2px solid var(--neon-green); }
+        .panel::after { content: ''; position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-bottom: 2px solid var(--neon-green); border-right: 2px solid var(--neon-green); }
+
+        /* Controls */
+        .address-bar { display: flex; gap: 1rem; align-items: center; }
+        input[type="text"] {
+            flex: 1; background: transparent; border: 1px solid var(--mid-green);
+            color: var(--neon-green); font-family: var(--font-stack); font-size: 1.5rem;
+            padding: 0.8rem; text-align: center; outline: none; box-shadow: inset 0 0 5px var(--dark-green);
+        }
+        button {
+            background: rgba(0, 255, 65, 0.1); color: var(--neon-green); border: 1px solid var(--neon-green);
+            font-family: var(--font-stack); font-size: 1.1rem; padding: 0.8rem 1.5rem; cursor: pointer;
+            transition: all 0.3s; text-transform: uppercase; font-weight: bold;
+        }
+        button:hover { background: var(--neon-green); color: var(--bg-color); box-shadow: 0 0 15px var(--neon-green); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Inbox */
+        .inbox-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--mid-green); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+        .inbox-table { width: 100%; border-collapse: collapse; }
+        .inbox-table th { text-align: left; padding: 0.5rem; color: var(--mid-green); border-bottom: 1px dashed var(--mid-green); }
+        .inbox-table td { padding: 1rem 0.5rem; border-bottom: 1px solid var(--dark-green); cursor: pointer; transition: background 0.2s; }
+        .inbox-table tr:hover td { background: rgba(0, 255, 65, 0.25); color: #fff; }
+        .empty-inbox { text-align: center; padding: 2rem; color: var(--mid-green); font-style: italic; }
+
+        /* --- UI MODAL ĐƯỢC LÀM LẠI HOÀN TOÀN --- */
+        #email-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background: #050505; border: 1px solid var(--neon-green); width: 95%; max-width: 850px;
+            max-height: 90vh; display: flex; flex-direction: column;
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.2), inset 0 0 20px rgba(0, 255, 65, 0.1);
+            position: relative;
+        }
+        
+        /* Cục chặn 4 góc của modal */
+        .modal-content::before { content: ''; position: absolute; top: -2px; left: -2px; width: 15px; height: 15px; border-top: 3px solid var(--neon-green); border-left: 3px solid var(--neon-green); }
+        .modal-content::after { content: ''; position: absolute; bottom: -2px; right: -2px; width: 15px; height: 15px; border-bottom: 3px solid var(--neon-green); border-right: 3px solid var(--neon-green); }
+
+        .modal-header { 
+            padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; 
+            background: rgba(0, 59, 0, 0.8); border-bottom: 2px solid var(--neon-green);
+            font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;
+        }
+
+        /* Box thông tin người gửi / tiêu đề */
+        .modal-meta-grid {
+            display: grid; grid-template-columns: 120px 1fr; gap: 0.8rem;
+            padding: 1.5rem; background: rgba(0, 255, 65, 0.05);
+            border-bottom: 1px dashed var(--mid-green); align-items: center;
+        }
+        .meta-label { color: var(--mid-green); font-weight: bold; }
+        .meta-value { color: #fff; word-break: break-all; }
+        .meta-value.subject-highlight { color: var(--neon-green); font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 5px var(--dark-green); }
+
+        /* Khu vực đọc text chính */
+        .modal-body { 
+            padding: 2rem; white-space: pre-wrap; line-height: 1.8; font-size: 1.15rem; 
+            color: #dcdcdc; overflow-y: auto; flex: 1; min-height: 300px;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 65, 0.02) 2px, rgba(0, 255, 65, 0.02) 4px);
+        }
+        
+        /* Chống tràn ảnh hoặc link quá dài trong mail */
+        .modal-body img { max-width: 100%; height: auto; }
+        .modal-body a { color: var(--neon-green); text-decoration: underline; text-underline-offset: 4px; }
+        .modal-body a:hover { background: var(--neon-green); color: #000; text-decoration: none; }
+
+        .modal-footer {
+            padding: 1rem; border-top: 1px solid var(--mid-green); display: flex; justify-content: flex-end;
+            background: #000;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed; bottom: 20px; right: 20px; background: var(--neon-green); color: var(--bg-color);
+            padding: 1rem 2rem; font-weight: bold; box-shadow: 0 0 15px var(--neon-green);
+            transform: translateY(150%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1001;
+        }
+        #toast.show { transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            .address-bar { flex-direction: column; } input[type="text"] { width: 100%; font-size: 1.2rem; } button { width: 100%; }
+            .glitch { font-size: 1.8rem; } .inbox-table th:nth-child(3), .inbox-table td:nth-child(3) { display: none; }
+            .modal-meta-grid { grid-template-columns: 1fr; gap: 0.3rem; }
+            .meta-label { margin-top: 0.5rem; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <canvas id="matrix"></canvas>
+
+    <div id="boot-screen">
+        <div class="boot-text" id="terminal-output"></div>
+        <div class="loading-bar-container" id="loading-bar">
+            <div class="loading-fill" id="loading-fill"></div>
+        </div>
+    </div>
+
+    <div id="main-app">
+        <div class="glitch" data-text="TEMPORARY MAIL">TEMPORARY MAIL</div>
+        <div class="status-line" id="system-status">
+            [&gt;] SYSTEM BOOTING <span class="blink">_</span>
+        </div>
+
+        <div class="panel">
+            <div style="margin-bottom: 0.5rem; color: var(--mid-green);">&gt; CURRENT_ADDRESS_NODE:</div>
+            <div class="address-bar">
+                <input type="text" id="email-display" readonly value="INITIALIZING...">
+                <button id="btn-copy" onclick="copyEmail()">[ COPY ]</button>
+                <button id="btn-regen" onclick="generateNewEmail()">[ REGENERATE ]</button>
+            </div>
+        </div>
+
+        <div class="panel" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="inbox-header">
+                <div>&gt; INBOX_INTERCEPT [ENCRYPTED TUNNEL: ACTIVE]</div>
+                <div id="msg-count">0 MSG</div>
+            </div>
+            <div style="overflow-y: auto; flex: 1;">
+                <table class="inbox-table">
+                    <thead>
+                        <tr>
+                            <th>SENDER</th>
+                            <th>SUBJECT</th>
+                            <th>TIMESTAMP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inbox-body"></tbody>
+                </table>
+                <div class="empty-inbox" id="empty-state">
+                    AWAITING INCOMING TRANSMISSIONS...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI MODAL MỚI -->
+    <div id="email-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>&gt; DECRYPTED_PAYLOAD.EXE</div>
+            </div>
+            
+            <div class="modal-meta-grid">
+                <div class="meta-label">TARGET_SRC :</div>
+                <div class="meta-value" id="modal-sender"></div>
+                
+                <div class="meta-label">TIMESTAMP  :</div>
+                <div class="meta-value" id="modal-date"></div>
+                
+                <div class="meta-label">SUBJECT    :</div>
+                <div class="meta-value subject-highlight" id="modal-subject"></div>
+            </div>
+
+            <div class="modal-body" id="modal-body-content"></div>
+            
+            <div class="modal-footer">
+                <button onclick="closeModal()">[ TERMINATE CONNECTION ]</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">ACTION COMPLETED</div>
+
+    <script>
+        /* --- Matrix Background --- */
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+{}[]|:;<>,.?/~`'.split('');
+        const fontSize = 14; let columns = canvas.width / fontSize; let drops = [];
+        for (let x = 0; x < columns; x++) drops[x] = 1;
+        setInterval(() => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00ff41'; ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }, 33);
+
+        /* --- Boot Sequence --- */
+        const bootMessages = [
+            "INIT SYSLOG...", "CONNECTING TO MAIL.TM MAINFRAME...", "BYPASSING FIREWALLS...",
+            "ESTABLISHING SECURE API TUNNEL...", "GENERATING BEARER TOKENS...", "SYSTEM SECURE. MOUNTING UI..."
+        ];
+        let bootIndex = 0;
+        function typeBootSequence() {
+            if (bootIndex < bootMessages.length) {
+                document.getElementById('terminal-output').innerHTML += `> ${bootMessages[bootIndex]}<br>`;
+                bootIndex++; setTimeout(typeBootSequence, Math.random() * 200 + 100);
+            } else {
+                document.getElementById('loading-bar').style.display = 'block';
+                let prg = 0;
+                const prgInterval = setInterval(() => {
+                    prg += Math.floor(Math.random() * 15) + 5;
+                    if(prg >= 100) {
+                        prg = 100; clearInterval(prgInterval); setTimeout(initApp, 400);
+                    }
+                    document.getElementById('loading-fill').style.width = prg + "%";
+                }, 80);
+            }
+        }
+        window.onload = () => setTimeout(typeBootSequence, 300);
+
+        /* --- MAIL.TM API INTEGRATION --- */
+        const API_BASE = "https://api.mail.tm";
+        let apiToken = "";
+        let currentEmail = "";
+        let inboxInterval;
+        let isGenerating = false;
+
+        function initApp() {
+            document.getElementById('boot-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            generateNewEmail();
+        }
+
+        async function generateNewEmail() {
+            if(isGenerating) return;
+            isGenerating = true;
+            document.getElementById('btn-regen').disabled = true;
+            
+            showToast("NEGOTIATING WITH ROOT NODE...");
+            document.getElementById('email-display').value = "GENERATING KEYS...";
+            
+            try {
+                const domainRes = await fetch(`${API_BASE}/domains`);
+                const domainData = await domainRes.json();
+                const activeDomain = domainData['hydra:member'][0].domain;
+
+                const prefix = Math.random().toString(36).substring(2, 12);
+                currentEmail = `${prefix}@${activeDomain}`;
+                const password = "hacker" + Math.random().toString(36).substring(2, 10);
+
+                showToast("REGISTERING SECURE ACCOUNT...");
+                await fetch(`${API_BASE}/accounts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: currentEmail, password: password })
+                });
+
+                showToast("FETCHING BEARER TOKEN...");
+                const tokenRes = await fetch(`${API_BASE}/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: currentEmail, password: password })
+                });
+                const tokenData = await tokenRes.json();
+                apiToken = tokenData.token;
+
+                document.getElementById('email-display').value = currentEmail;
+                updateStatus("SECURE ROUTING ENABLED");
+                showToast("NODE ONLINE. ENCRYPTION ACTIVE.");
+                
+                document.getElementById('inbox-body').innerHTML = '';
+                document.getElementById('empty-state').style.display = 'block';
+                document.getElementById('msg-count').innerText = `0 MSG`;
+                
+                startRealInboxSync();
+
+            } catch (error) {
+                showToast("CRITICAL ERROR: API BLOCKED OR TIMEOUT");
+                document.getElementById('email-display').value = "CONNECTION_FAILED";
+            } finally {
+                isGenerating = false;
+                setTimeout(() => { document.getElementById('btn-regen').disabled = false; }, 5000);
+            }
+        }
+
+        function startRealInboxSync() {
+            if(inboxInterval) clearInterval(inboxInterval);
+            inboxInterval = setInterval(async () => {
+                if(!apiToken) return;
+                try {
+                    const res = await fetch(`${API_BASE}/messages`, {
+                        headers: { 'Authorization': `Bearer ${apiToken}` }
+                    });
+                    const data = await res.json();
+                    if(data['hydra:member']) {
+                        renderRealInbox(data['hydra:member']);
+                    }
+                } catch (error) {}
+            }, 5000);
+        }
+
+        let previousMessageCount = 0;
+
+        function renderRealInbox(messages) {
+            const tbody = document.getElementById('inbox-body');
+            const emptyState = document.getElementById('empty-state');
+            
+            document.getElementById('msg-count').innerText = `${messages.length} MSG`;
+
+            if(messages.length > previousMessageCount) {
+                updateStatus(`${messages.length - previousMessageCount} INCOMING PACKETS SECURED`);
+                setTimeout(() => updateStatus("SECURE ROUTING ENABLED"), 2000);
+            }
+            previousMessageCount = messages.length;
+
+            if (messages.length === 0) {
+                emptyState.style.display = 'block';
+                tbody.innerHTML = '';
+            } else {
+                emptyState.style.display = 'none';
+                tbody.innerHTML = ''; 
+                
+                messages.forEach(email => {
+                    const tr = document.createElement('tr');
+                    tr.onclick = () => openRealEmail(email.id);
+                    const dateObj = new Date(email.createdAt);
+                    
+                    tr.innerHTML = `
+                        <td>${escapeHtml(email.from.address)}</td>
+                        <td style="font-weight: bold;">${escapeHtml(email.subject || "(NO SUBJECT)")}</td>
+                        <td>${dateObj.toLocaleTimeString()} - ${dateObj.toLocaleDateString()}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        async function openRealEmail(messageId) {
+            document.getElementById('email-modal').style.display = 'flex';
+            
+            // Xóa data cũ và hiện chữ chờ
+            document.getElementById('modal-sender').innerText = "DECRYPTING...";
+            document.getElementById('modal-date').innerText = "DECRYPTING...";
+            document.getElementById('modal-subject').innerText = "DECRYPTING...";
+            const bodyContainer = document.getElementById('modal-body-content');
+            bodyContainer.innerHTML = '<span class="blink" style="color: var(--neon-green);">EXTRACTING PAYLOAD DATA...</span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/messages/${messageId}`, {
+                    headers: { 'Authorization': `Bearer ${apiToken}` }
+                });
+                const emailData = await res.json();
+
+                // Đổ data mới vào Grid
+                document.getElementById('modal-sender').innerText = `${emailData.from.name ? emailData.from.name + ' ' : ''}<${emailData.from.address}>`;
+                document.getElementById('modal-date').innerText = new Date(emailData.createdAt).toLocaleString();
+                document.getElementById('modal-subject').innerText = emailData.subject || "NO SUBJECT FOUND";
+                
+                // Đổ text vào Body
+                if (emailData.text) {
+                    bodyContainer.innerText = emailData.text;
+                } else if (emailData.intro) {
+                    bodyContainer.innerText = emailData.intro;
+                } else {
+                    bodyContainer.innerText = "[ EMPTY PAYLOAD OR UNREADABLE HTML ]";
+                }
+
+            } catch (error) {
+                bodyContainer.innerHTML = "<span style='color:red;'>DECRYPTION FAILED. PACKET CORRUPTED.</span>";
+            }
+        }
+
+        function copyEmail() {
+            const el = document.getElementById('email-display');
+            if(el.value.includes("...")) return;
+            el.select(); document.execCommand('copy');
+            showToast("ADDRESS CLONED TO CLIPBOARD");
+        }
+
+        function updateStatus(msg) {
+            const status = document.getElementById('system-status');
+            status.style.color = '#fff';
+            status.innerHTML = `[&gt;] ${msg} <span class="blink">_</span>`;
+            if(msg === "SECURE ROUTING ENABLED") {
+                status.style.color = 'var(--mid-green)';
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = `> ${msg}`;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function closeModal() {
+            document.getElementById('email-modal').style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if(!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('email-modal')) closeModal();
+        }
+    </script>
+</body>
+</html>
